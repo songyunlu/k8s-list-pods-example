@@ -1,0 +1,52 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: list-all-pods-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: list-all-pods-role
+  namespace: default
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+    verbs:
+      - get
+      - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: list-all-pods-rolebinding
+  namespace: default
+subjects:
+  - kind: ServiceAccount
+    name: list-all-pods-sa
+roleRef:
+  kind: Role
+  name: list-all-pods-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: curl-list-pods
+spec:
+  serviceAccountName: list-all-pods-sa
+  containers:
+  - name: curl
+    image: curlimages/curl
+    env:
+    - name: APISERVER
+      value: "https://$(KUBERNETES_SERVICE_HOST):$(KUBERNETES_SERVICE_PORT)"
+    - name: SERVICEACCOUNT
+      value: "/var/run/secrets/kubernetes.io/serviceaccount"
+    - name: CACERT
+      value: "$(SERVICEACCOUNT)/ca.crt"
+    command: ["/bin/sh"]
+    args: ["-c", "export TOKEN=$(cat ${SERVICEACCOUNT}/token); curl -s --cacert ${CACERT} --header \"Authorization: Bearer ${TOKEN}\" -X GET ${APISERVER}/api/v1/namespaces/default/pods;"]
